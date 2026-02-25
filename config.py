@@ -24,7 +24,7 @@ class LLMConfig(BaseModel):
     base_url: str = Field(default="http://localhost:11434", description="Base URL for LLM API")
     temperature: float = Field(default=0.7, description="Temperature for generation")
     max_tokens: int = Field(default=2048, description="Maximum tokens to generate")
-    timeout: int = Field(default=120, description="Request timeout in seconds")
+    timeout: int = Field(default=60, description="Request timeout in seconds")
     
     # Agent Configuration
     agent_name: str = Field(default="Kiro", description="Name of the agent")
@@ -70,6 +70,7 @@ def load_config() -> AgentConfig:
             base_url=os.getenv("LLM_BASE_URL", "http://localhost:11434"),
             temperature=float(os.getenv("LLM_TEMPERATURE", "0.7")),
             max_tokens=int(os.getenv("LLM_MAX_TOKENS", "2048")),
+            timeout=int(os.getenv("LLM_TIMEOUT", "300")),
         ),
         enable_mcp=os.getenv("ENABLE_MCP", "True").lower() == "true",
         mcp_servers=mcp_servers,

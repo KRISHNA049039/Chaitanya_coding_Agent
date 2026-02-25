@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCP Server Management - Kiro Agent</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            color: #1e293b;
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #64748b;
+            font-size: 16px;
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .nav-btn {
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.2s;
+        }
+
+        .nav-btn:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+
+        .add-server-section {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .add-server-section h2 {
+            color: #1e293b;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            color: #475569;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+
+        .servers-section {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .servers-section h2 {
+            color: #1e293b;
+            margin-bottom: 20px;
+        }
+
+        .server-card {
+            background: #f8fafc;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            transition: all 0.2s;
+        }
+
+        .server-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
+        }
+
+        .server-card.connected {
+            border-color: #10b981;
+            background: #f0fdf4;
+        }
+
+        .server-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .server-name {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-connected {
+            background: #10b981;
+            color: white;
+        }
+
+        .status-disconnected {
+            background: #ef4444;
+            color: white;
+        }
+
+        .server-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .info-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .info-label {
+            font-size: 12px;
+            color: #64748b;
+            margin-bottom: 4px;
+        }
+
+        .info-value {
+            font-size: 14px;
+            color: #1e293b;
+            font-family: monospace;
+        }
+
+        .server-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-connect {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-connect:hover {
+            background: #059669;
+        }
+
+        .btn-disconnect {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-disconnect:hover {
+            background: #dc2626;
+        }
+
+        .btn-remove {
+            background: #64748b;
+            color: white;
+        }
+
+        .btn-remove:hover {
+            background: #475569;
+        }
+
+        .btn-tools {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-tools:hover {
+            background: #5568d3;
+        }
+
+        .tools-list {
+            margin-top: 15px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .tools-list.active {
+            display: block;
+        }
+
+        .tool-item {
+            padding: 10px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .tool-item:last-child {
+            border-bottom: none;
+        }
+
+        .tool-name {
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .tool-description {
+            font-size: 13px;
+            color: #64748b;
+            margin-top: 4px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #64748b;
+        }
+
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #64748b;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #e2e8f0;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 500;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            animation: slideIn 0.3s ease-out;
+            z-index: 1000;
+        }
+
+        .notification.success {
+            background: #10b981;
+        }
+
+        .notification.error {
+            background: #ef4444;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔌 MCP Server Management</h1>
+            <p>Manage Model Context Protocol servers and their tools</p>
+            <div class="nav-buttons">
+                <a href="/" class="nav-btn">← Back to Chat</a>
+                <button class="nav-btn" onclick="refreshServers()">🔄 Refresh</button>
+            </div>
+        </div>
+
+        <div class="add-server-section">
+            <h2>➕ Add New MCP Server</h2>
+            <form id="addServerForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="serverName">Server Name *</label>
+                        <input type="text" id="serverName" placeholder="e.g., github, filesystem" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="transport">Transport Type</label>
+                        <select id="transport">
+                            <option value="stdio">stdio (Standard I/O)</option>
+                            <option value="http">http (HTTP API)</option>
+                            <option value="websocket">websocket (WebSocket)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="command">Command *</label>
+                    <input type="text" id="command" placeholder="e.g., npx @modelcontextprotocol/server-github" required>
+                </div>
+                <div class="form-group">
+                    <label for="url">URL (for HTTP/WebSocket)</label>
+                    <input type="text" id="url" placeholder="e.g., http://localhost:8000">
+                </div>
+                <button type="submit" class="btn btn-primary">Add Server</button>
+            </form>
+        </div>
+
+        <div class="servers-section">
+            <h2>📡 MCP Servers</h2>
+            <div id="serversList">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Loading servers...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let servers = [];
+
+        // Load servers on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadServers();
+        });
+
+        // Add server form
+        document.getElementById('addServerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const serverData = {
+                name: document.getElementById('serverName').value,
+                command: document.getElementById('command').value,
+                transport: document.getElementById('transport').value,
+                url: document.getElementById('url').value || null
+            };
+
+            try {
+                const response = await fetch('/api/mcp/add', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(serverData)
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showNotification('Server added successfully!', 'success');
+                    document.getElementById('addServerForm').reset();
+                    loadServers();
+                } else {
+                    showNotification('Failed to add server: ' + (data.error || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                showNotification('Error: ' + error.message, 'error');
+            }
+        });
+
+        async function loadServers() {
+            try {
+                const response = await fetch('/api/mcp/servers');
+                const data = await response.json();
+                
+                servers = data.servers || [];
+                renderServers();
+            } catch (error) {
+                document.getElementById('serversList').innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">⚠️</div>
+                        <p>Error loading servers: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        function renderServers() {
+            const container = document.getElementById('serversList');
+            
+            if (servers.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📭</div>
+                        <p>No MCP servers configured yet.</p>
+                        <p style="margin-top: 10px; font-size: 14px;">Add your first server above to get started!</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = servers.map(server => `
+                <div class="server-card ${server.connected ? 'connected' : ''}">
+                    <div class="server-header">
+                        <div class="server-name">
+                            ${server.name}
+                            <span class="status-badge ${server.connected ? 'status-connected' : 'status-disconnected'}">
+                                ${server.connected ? '● Connected' : '○ Disconnected'}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="server-info">
+                        <div class="info-item">
+                            <span class="info-label">Command</span>
+                            <span class="info-value">${server.command || 'N/A'}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Transport</span>
+                            <span class="info-value">${server.transport || 'stdio'}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Tools Available</span>
+                            <span class="info-value">${server.tools || 0}</span>
+                        </div>
+                    </div>
+                    <div class="server-actions">
+                        ${server.connected ? 
+                            `<button class="btn btn-disconnect" onclick="disconnectServer('${server.name}')">Disconnect</button>` :
+                            `<button class="btn btn-connect" onclick="connectServer('${server.name}')">Connect</button>`
+                        }
+                        <button class="btn btn-tools" onclick="toggleTools('${server.name}')">View Tools</button>
+                        <button class="btn btn-remove" onclick="removeServer('${server.name}')">Remove</button>
+                    </div>
+                    <div class="tools-list" id="tools-${server.name}">
+                        <p style="color: #64748b;">Loading tools...</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function connectServer(name) {
+            try {
+                const response = await fetch(`/api/mcp/connect/${name}`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    showNotification(`Connected to ${name}!`, 'success');
+                    loadServers();
+                } else {
+                    showNotification(`Failed to connect: ${data.error || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                showNotification('Error: ' + error.message, 'error');
+            }
+        }
+
+        async function disconnectServer(name) {
+            try {
+                const response = await fetch(`/api/mcp/disconnect/${name}`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    showNotification(`Disconnected from ${name}`, 'success');
+                    loadServers();
+                } else {
+                    showNotification(`Failed to disconnect: ${data.error || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                showNotification('Error: ' + error.message, 'error');
+            }
+        }
+
+        async function removeServer(name) {
+            if (!confirm(`Are you sure you want to remove ${name}?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/mcp/remove/${name}`, {
+                    method: 'DELETE'
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    showNotification(`Removed ${name}`, 'success');
+                    loadServers();
+                } else {
+                    showNotification(`Failed to remove: ${data.error || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                showNotification('Error: ' + error.message, 'error');
+            }
+        }
+
+        async function toggleTools(name) {
+            const toolsList = document.getElementById(`tools-${name}`);
+            
+            if (toolsList.classList.contains('active')) {
+                toolsList.classList.remove('active');
+                return;
+            }
+
+            toolsList.classList.add('active');
+            
+            try {
+                const response = await fetch(`/api/mcp/tools/${name}`);
+                const data = await response.json();
+                
+                if (data.tools && data.tools.length > 0) {
+                    toolsList.innerHTML = data.tools.map(tool => `
+                        <div class="tool-item">
+                            <div class="tool-name">${tool.name}</div>
+                            <div class="tool-description">${tool.description || 'No description'}</div>
+                        </div>
+                    `).join('');
+                } else {
+                    toolsList.innerHTML = '<p style="color: #64748b;">No tools available</p>';
+                }
+            } catch (error) {
+                toolsList.innerHTML = `<p style="color: #ef4444;">Error loading tools: ${error.message}</p>`;
+            }
+        }
+
+        function refreshServers() {
+            loadServers();
+            showNotification('Refreshed!', 'success');
+        }
+
+        function showNotification(message, type) {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

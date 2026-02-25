@@ -6,6 +6,12 @@ from typing import Optional
 from colorama import Fore, Style, init
 import sys
 import asyncio
+import io
+import json
+
+# Force unbuffered output
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace', line_buffering=True)
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace', line_buffering=True)
 
 from agent import Agent
 from config import load_config, MCPServerConfig
@@ -14,13 +20,13 @@ from mcp_client import MCPTransportType
 # Initialize colorama for cross-platform colored text
 init(autoreset=True)
 
-app = typer.Typer(help="🤖 Kiro - AI Agent with Local LLM Integration and MCP Support")
+app = typer.Typer(help="Kiro - AI Agent with Local LLM Integration and MCP Support")
 
 
 def print_welcome():
     """Print welcome message"""
     print(f"\n{Fore.CYAN}{'='*60}")
-    print(f"{Fore.CYAN}🤖 Welcome to Kiro - Local AI Agent")
+    print(f"{Fore.CYAN}Welcome to Kiro - Local AI Agent")
     print(f"{Fore.CYAN}{'='*60}{Style.RESET_ALL}\n")
 
 
@@ -37,51 +43,105 @@ def print_status(agent: Agent):
 
 @app.command()
 def chat(
-    message: Optional[str] = typer.Argument(None, help="Message to send to agent"),
+    message: Optional[str] = typer.Argument(None, help="Message to send to agent (optional, enters interactive mode if omitted)"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
 ):
     """
-    Chat with the Kiro agent
+    Chat with the Kiro agent in interactive mode
     
     Examples:
-        kiro chat "write a hello world Python script"
-        kiro chat "explain how to use asyncio" --verbose
+        kiro chat                  # Interactive mode
+        kiro chat "hello"          # Single message and exit
+        kiro chat "hello" --verbose
     """
     try:
         config = load_config()
         agent = Agent(config=config)
         
-        print_welcome()
-        print_status(agent)
+        # Setup approval bridge for VS Code integration
+        from approval_bridge import setup_approval_callback, approval_bridge
+        setup_approval_callback(agent.approval_handler)
         
-        if not message:
-            print(f"{Fore.CYAN}Interactive mode. Type 'exit' to quit.{Style.RESET_ALL}\n")
-            while True:
-                try:
-                    user_input = input(f"{Fore.GREEN}You: {Style.RESET_ALL}").strip()
-                    
-                    if user_input.lower() in ['exit', 'quit', 'q']:
-                        print(f"\n{Fore.YELLOW}Goodbye!{Style.RESET_ALL}\n")
-                        break
-                    
-                    if not user_input:
-                        continue
-                    
-                    print(f"\n{Fore.BLUE}Agent thinking...{Style.RESET_ALL}\n")
-                    response = agent.run(user_input, verbose=verbose)
-                    print(f"{Fore.CYAN}Kiro: {Style.RESET_ALL}{response}\n")
-                
-                except KeyboardInterrupt:
-                    print(f"\n\n{Fore.YELLOW}Interrupted by user.{Style.RESET_ALL}\n")
-                    break
-        else:
-            print(f"{Fore.GREEN}User: {Style.RESET_ALL}{message}\n")
-            print(f"{Fore.BLUE}Agent thinking...{Style.RESET_ALL}\n")
+        # Check if stdin is a TTY (interactive terminal)
+        is_interactive = sys.stdin.isatty()
+        
+        # Only print welcome/status in interactive mode
+        if is_interactive:
+            print_welcome()
+            print_status(agent)
+        
+        # Always start in interactive mode unless message is provided
+        # After a single message, offer to continue chatting
+        if message:
+            if is_interactive:
+                print(f"{Fore.GREEN}You: {Style.RESET_ALL}{message}\n")
+                print(f"{Fore.BLUE}Agent thinking...{Style.RESET_ALL}\n")
             response = agent.run(message, verbose=verbose)
-            print(f"{Fore.CYAN}Kiro:{Style.RESET_ALL}\n{response}\n")
+            print(f"{Fore.CYAN}Kiro:{Style.RESET_ALL}\n{response}\n", flush=True)
+            # Ask if user wants to continue
+            message = None
+        
+        # Interactive mode only if stdin is a TTY
+        if not is_interactive:
+            # Non-interactive mode: read from stdin line by line (for VS Code extension)
+            print("ready", flush=True)
+            for line in sys.stdin:
+                user_input = line.strip()
+                
+                # Check for approval responses from VS Code
+                if user_input.startswith('APPROVAL_RESPONSE:'):
+                    try:
+                        response_data = json.loads(user_input[len('APPROVAL_RESPONSE:'):])
+                        approval_bridge.handle_approval_response(response_data)
+                        
+                        # Execute the approval/rejection
+                        change_id = response_data.get('change_id')
+                        approved = response_data.get('approved', False)
+                        
+                        if approved:
+                            result = agent.approval_handler.approve_change(change_id)
+                        else:
+                            result = agent.approval_handler.reject_change(change_id)
+                        
+                        print(result.output if result.success else result.error, flush=True)
+                        continue
+                    except Exception as e:
+                        print(f"Error handling approval: {e}", flush=True)
+                        continue
+                
+                if user_input.lower() in ['exit', 'quit', 'q']:
+                    break
+                
+                if not user_input:
+                    continue
+                
+                response = agent.run(user_input, verbose=verbose)
+                print(f"{response}\n", flush=True)
+            return
+        
+        # Interactive mode
+        print(f"{Fore.CYAN}Interactive mode. Type 'exit' to quit.{Style.RESET_ALL}\n")
+        while True:
+            try:
+                user_input = input(f"{Fore.GREEN}You: {Style.RESET_ALL}").strip()
+                
+                if user_input.lower() in ['exit', 'quit', 'q']:
+                    print(f"\n{Fore.YELLOW}Goodbye!{Style.RESET_ALL}\n")
+                    break
+                
+                if not user_input:
+                    continue
+                
+                print(f"\n{Fore.BLUE}Agent thinking...{Style.RESET_ALL}\n")
+                response = agent.run(user_input, verbose=verbose)
+                print(f"{Fore.CYAN}Kiro: {Style.RESET_ALL}{response}\n", flush=True)
+            
+            except KeyboardInterrupt:
+                print(f"\n\n{Fore.YELLOW}Interrupted by user.{Style.RESET_ALL}\n")
+                break
     
     except Exception as e:
-        print(f"\n{Fore.RED}Error: {str(e)}{Style.RESET_ALL}\n")
+        print(f"{Fore.RED}Error: {str(e)}{Style.RESET_ALL}\n", flush=True)
         sys.exit(1)
 
 

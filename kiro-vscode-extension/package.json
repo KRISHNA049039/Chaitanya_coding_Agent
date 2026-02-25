@@ -1,0 +1,39 @@
+{
+  "name": "kiro-vscode-extension",
+  "displayName": "Kiro Chat",
+  "description": "Kiro - Local AI Agent Chat Interface for VS Code",
+  "publisher": "kiro",
+  "version": "0.1.0",
+  "engines": { "vscode": "^1.60.0" },
+  "main": "./extension.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/kiro-vscode-extension"
+  },
+  "activationEvents": ["onCommand:kiro.startChat"],
+  "contributes": {
+    "commands": [
+      {
+        "command": "kiro.startChat",
+        "title": "Kiro: Start Chat",
+        "category": "Kiro"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "kiro.startChat",
+        "key": "ctrl+shift+k",
+        "mac": "cmd+shift+k"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "echo 'Ready to package'",
+    "package": "vsce package",
+    "publish": "vsce publish"
+  },
+  "devDependencies": {
+    "@vscode/vsce": "^2.19.0"
+  }
+}
+

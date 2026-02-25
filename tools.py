@@ -96,8 +96,19 @@ class CodeExecutionTool(Tool):
     def __init__(self):
         super().__init__(
             name="execute_code",
-            description="Execute Python code and get output"
+            description="Execute Python code and get output. Parameters: code (Python code string), timeout (optional, default 30 seconds)"
         )
+    
+    def schema(self) -> Dict[str, Any]:
+        """Return JSON schema for tool"""
+        return {
+            "name": self.name,
+            "description": self.description,
+            "parameters": {
+                "code": "string - Python code to execute",
+                "timeout": "integer (optional) - Timeout in seconds (default: 30)"
+            }
+        }
     
     def execute(self, code: str, timeout: int = 30) -> ToolResult:
         """Execute Python code safely"""
@@ -140,8 +151,19 @@ class FileTool(Tool):
     def __init__(self):
         super().__init__(
             name="read_file",
-            description="Read contents of a file"
+            description="Read contents of a file. Parameters: path (file path), max_lines (optional, limit number of lines)"
         )
+    
+    def schema(self) -> Dict[str, Any]:
+        """Return JSON schema for tool"""
+        return {
+            "name": self.name,
+            "description": self.description,
+            "parameters": {
+                "path": "string - Path to file to read (e.g., 'config.py')",
+                "max_lines": "integer (optional) - Maximum number of lines to read"
+            }
+        }
     
     def execute(self, path: str, max_lines: Optional[int] = None) -> ToolResult:
         """Read file contents"""
@@ -175,8 +197,19 @@ class ShellTool(Tool):
     def __init__(self):
         super().__init__(
             name="execute_command",
-            description="Execute shell command"
+            description="Execute shell command. Parameters: command (shell command string), timeout (optional, default 30 seconds)"
         )
+    
+    def schema(self) -> Dict[str, Any]:
+        """Return JSON schema for tool"""
+        return {
+            "name": self.name,
+            "description": self.description,
+            "parameters": {
+                "command": "string - Shell command to execute",
+                "timeout": "integer (optional) - Timeout in seconds (default: 30)"
+            }
+        }
     
     def execute(self, command: str, timeout: int = 30) -> ToolResult:
         """Execute shell command"""
@@ -264,10 +297,48 @@ class ToolRegistry:
         return "\n".join(descriptions)
 
 
-def create_default_registry() -> ToolRegistry:
+def create_default_registry(approval_handler=None) -> ToolRegistry:
     """Create registry with default tools"""
     registry = ToolRegistry()
     registry.register(CodeExecutionTool())
     registry.register(FileTool())
     registry.register(ShellTool())
+    
+    # Add web search tools (no approval needed)
+    from web_search_tool import WebSearchTool, FetchURLTool, QuickAnswerTool
+    registry.register(WebSearchTool())
+    registry.register(FetchURLTool())
+    registry.register(QuickAnswerTool())
+    
+    # Add PDF tools (no approval needed)
+    try:
+        from pdf_tools import PDFReaderTool, PDFInfoTool, PDFSearchTool, ScanDirectoryForPDFsTool
+        registry.register(PDFReaderTool())
+        registry.register(PDFInfoTool())
+        registry.register(PDFSearchTool())
+        registry.register(ScanDirectoryForPDFsTool())
+    except ImportError:
+        print("Warning: PDF tools not available (install PyPDF2)")
+    
+    # Add semantic search tools (no approval needed)
+    try:
+        from semantic_search_tool import SemanticSearchTool, CodeSearchTool
+        registry.register(SemanticSearchTool())
+        registry.register(CodeSearchTool())
+    except ImportError:
+        print("Warning: Semantic search not available (install sentence-transformers)")
+    
+    # Add file operation tools with approval if handler provided
+    if approval_handler:
+        from file_operations import (
+            CreateFileTool, ModifyFileTool, DeleteFileTool, ListDirectoryTool
+        )
+        from shell_tool import ShellCommandTool
+        
+        registry.register(CreateFileTool(approval_handler))
+        registry.register(ModifyFileTool(approval_handler))
+        registry.register(DeleteFileTool(approval_handler))
+        registry.register(ListDirectoryTool())
+        registry.register(ShellCommandTool(approval_handler))
+    
     return registry

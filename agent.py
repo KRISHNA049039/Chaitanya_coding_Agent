@@ -30,13 +30,22 @@ class Agent:
             model=self.config.llm_config.model_name,
             timeout=self.config.llm_config.timeout,
         )
-        self.tools = create_default_registry()
+        
+        # Initialize approval handler for file operations
+        from file_operations import approval_handler
+        self.approval_handler = approval_handler
+        
+        # Create tools with approval handler
+        self.tools = create_default_registry(approval_handler=self.approval_handler)
         self.conversation_history: List[Message] = []
         self.iteration_count = 0
         
         # Initialize MCP
         self.mcp_manager = MCPServerManager()
         self.tools.set_mcp_manager(self.mcp_manager)
+        
+        # Cache system prompt to avoid rebuilding
+        self._system_prompt_cache = None
         
         # Check if LLM is available
         if not self.llm.is_available():
@@ -77,34 +86,41 @@ class Agent:
                 results[server_config.name] = await self.connect_mcp_server(server_config.name)
         return results
     
-    def _build_system_prompt(self) -> str:
-        """Build comprehensive system prompt"""
-        tools_desc = self.tools.get_tools_description()
-        mcp_info = ""
+    def _build_system_prompt(self, force_rebuild: bool = False) -> str:
+        """Build comprehensive system prompt with caching"""
+        if self._system_prompt_cache and not force_rebuild:
+            return self._system_prompt_cache
+            
+        # Simplified tool descriptions
+        tool_list = []
+        for name, tool in self.tools.tools.items():
+            tool_list.append(f"- {name}: {tool.description}")
         
-        if self.mcp_manager.list_connected_servers():
-            mcp_info = f"\n\nConnected MCP Servers: {', '.join(self.mcp_manager.list_connected_servers())}"
+        tools_desc = '\n'.join(tool_list)
         
         system_prompt = f"""{self.config.llm_config.system_prompt}
 
-Available Tools:
-{tools_desc}{mcp_info}
+Tools: {', '.join(self.tools.list_tools())}
 
-Tool Usage Format:
-When you need to use a tool, format your response as JSON on a new line:
-{{
-  "action": "use_tool",
-  "tool_name": "tool_name",
-  "arguments": {{"param": "value"}}
-}}
+Rules:
+- "create file" → use create_file tool
+- "modify file" → use modify_file tool
+- "run/execute command" → use execute_shell tool
+- "search web/internet" → use web_search tool
+- "fetch/get URL" → use fetch_url tool
+- "what is/quick answer" → use quick_answer tool
+- Just explaining → respond normally
 
-After tool execution, analyze the result and continue with your next action.
+Format: {{"action": "use_tool", "tool_name": "tool_name", "arguments": {{"param": "value"}}}}
 
-Current Status:
-- Agent: {self.config.llm_config.agent_name}
-- Model: {self.config.llm_config.model_name}
-- Tools: {', '.join(self.tools.list_tools())}
+Examples:
+File: {{"action": "use_tool", "tool_name": "create_file", "arguments": {{"path": "hello.txt", "content": "hello", "reason": "Create file"}}}}
+Shell: {{"action": "use_tool", "tool_name": "execute_shell", "arguments": {{"command": "git status", "reason": "Check status"}}}}
+Search: {{"action": "use_tool", "tool_name": "web_search", "arguments": {{"query": "Python tutorials", "num_results": 5}}}}
+Fetch: {{"action": "use_tool", "tool_name": "fetch_url", "arguments": {{"url": "https://example.com"}}}}
+Answer: {{"action": "use_tool", "tool_name": "quick_answer", "arguments": {{"query": "What is Python?"}}}}
 """
+        self._system_prompt_cache = system_prompt
         return system_prompt
     
     def _parse_tool_call(self, text: str) -> Optional[Dict[str, Any]]:
@@ -122,118 +138,109 @@ Current Status:
                     continue
         return None
     
-    def run(
-        self,
-        user_input: str,
-        max_iterations: Optional[int] = None,
-        verbose: bool = False,
-    ) -> str:
+    def run(self, user_input: str, stream: bool = False, max_iterations: int = 3, verbose: bool = False):
         """
-        Run the agent in an agentic loop
+        Run agent with user input
         
         Args:
-            user_input: User's request
-            max_iterations: Max iterations (default from config)
-            verbose: Print detailed output
+            user_input: User's message
+            stream: Enable streaming responses
+            max_iterations: Maximum iterations for agentic loop
+            verbose: Enable verbose output
             
         Returns:
-            Final response from agent
+            Agent's response (string or generator if streaming)
         """
-        max_iterations = max_iterations or self.config.max_iterations
-        self.iteration_count = 0
-        self.conversation_history = []
-        
-        # Add user message
-        self.conversation_history.append(Message(role="user", content=user_input))
-        
-        if verbose:
-            print(f"\n{'='*60}")
-            print(f"🤖 Kiro Agent Starting")
-            print(f"{'='*60}")
-            print(f"User: {user_input}\n")
-        
-        while self.iteration_count < max_iterations:
-            self.iteration_count += 1
+        if stream:
+            # For streaming, use simple chat with streaming
+            self.conversation_history = [Message(role="user", content=user_input)]
             
-            if verbose:
-                print(f"--- Iteration {self.iteration_count} ---")
-            
-            # Get response from LLM
-            response = self.llm.chat(
+            return self.llm.chat(
                 messages=self.conversation_history,
                 temperature=self.config.llm_config.temperature,
                 max_tokens=self.config.llm_config.max_tokens,
                 system_prompt=self._build_system_prompt(),
+                stream=True
             )
+        else:
+            # Use the main agentic loop logic (non-streaming)
+            self.iteration_count = 0
+            self.conversation_history = []
+            
+            # Add user message
+            self.conversation_history.append(Message(role="user", content=user_input))
             
             if verbose:
-                print(f"Agent: {response[:200]}...")
+                print(f"\n{'='*60}")
+                print(f"🤖 Kiro Agent Starting")
+                print(f"{'='*60}")
+                print(f"User: {user_input}\n")
             
-            # Add assistant response to history
-            self.conversation_history.append(Message(role="assistant", content=response))
-            
-            # Check if tool call is needed
-            tool_call = self._parse_tool_call(response)
-            
-            if tool_call:
-                tool_name = tool_call.get("tool_name")
-                arguments = tool_call.get("arguments", {})
+            while self.iteration_count < max_iterations:
+                self.iteration_count += 1
                 
                 if verbose:
-                    print(f"🔧 Using tool: {tool_name}")
-                    print(f"   Arguments: {arguments}")
+                    print(f"--- Iteration {self.iteration_count} ---")
                 
-                # Execute tool
-                result = self.tools.execute(tool_name, **arguments)
-                
+                # Get response from LLM
                 if verbose:
-                    print(f"   Result: {result.output[:100] if result.output else result.error}")
+                    print("Agent: ", end="", flush=True)
                 
-                # Add tool result to conversation
-                tool_response = f"Tool '{tool_name}' executed. "
-                if result.success:
-                    tool_response += f"Output: {result.output}"
-                else:
-                    tool_response += f"Error: {result.error}"
-                
-                self.conversation_history.append(
-                    Message(role="user", content=f"[Tool Result]\n{tool_response}")
+                response = self.llm.chat(
+                    messages=self.conversation_history,
+                    temperature=self.config.llm_config.temperature,
+                    max_tokens=self.config.llm_config.max_tokens,
+                    system_prompt=self._build_system_prompt(),
+                    stream=False,
                 )
-            else:
-                # No tool call needed, agent is done
-                if verbose:
-                    print(f"\n{'='*60}")
-                    print(f"✅ Kiro Agent Complete")
-                    print(f"{'='*60}\n")
                 
-                return response
-        
-        # Max iterations reached
-        if verbose:
-            print(f"\n⚠️  Max iterations ({max_iterations}) reached")
-        
-        return response
-    
-    def simple_chat(self, user_input: str) -> str:
-        """
-        Simple one-turn chat (no agentic loop)
-        
-        Args:
-            user_input: User's message
+                if verbose:
+                    print(response[:200] + "..." if len(response) > 200 else response)
+                
+                # Add assistant response to history
+                self.conversation_history.append(Message(role="assistant", content=response))
+                
+                # Check if tool call is needed
+                tool_call = self._parse_tool_call(response)
+                
+                if tool_call:
+                    tool_name = tool_call.get("tool_name")
+                    arguments = tool_call.get("arguments", {})
+                    
+                    if verbose:
+                        print(f"[TOOL] Using tool: {tool_name}")
+                        print(f"   Arguments: {arguments}")
+                    
+                    # Execute tool
+                    result = self.tools.execute(tool_name, **arguments)
+                    
+                    if verbose:
+                        print(f"   Result: {result.output[:100] if result.output else result.error}")
+                    
+                    # Add tool result to conversation
+                    tool_response = f"Tool '{tool_name}' executed. "
+                    if result.success:
+                        tool_response += f"Output: {result.output}"
+                    else:
+                        tool_response += f"Error: {result.error}"
+                    
+                    self.conversation_history.append(
+                        Message(role="user", content=f"[Tool Result]\n{tool_response}")
+                    )
+                else:
+                    # No tool call needed, agent is done
+                    if verbose:
+                        print(f"\n{'='*60}")
+                        print(f"✅ Kiro Agent Complete")
+                        print(f"{'='*60}\n")
+                    
+                    return response
             
-        Returns:
-            Agent's response
-        """
-        self.conversation_history = [Message(role="user", content=user_input)]
-        
-        response = self.llm.chat(
-            messages=self.conversation_history,
-            temperature=self.config.llm_config.temperature,
-            max_tokens=self.config.llm_config.max_tokens,
-            system_prompt=self.config.llm_config.system_prompt,
-        )
-        
-        return response
+            # Max iterations reached
+            if verbose:
+                print(f"\n⚠️  Max iterations ({max_iterations}) reached")
+            
+            return response
     
     def get_status(self) -> Dict[str, Any]:
         """Get current agent status"""

@@ -11,6 +11,14 @@ A powerful AI agent (inspired by GitHub Copilot) that runs completely locally wi
 - ⚡ Use an agentic loop for complex problem-solving
 - 🎯 Reason through multi-step tasks
 
+## 🚀 Get Started in 5 Minutes
+
+→ **[Quick Start Guide](QUICK_START_EXTENSION.md)** - Install the VS Code extension and start chatting
+
+→ **[Extension Usage Guide](EXTENSION_USAGE_GUIDE.md)** - Complete documentation for the extension
+
+→ **[CLI Usage](USAGE_GUIDE.md)** - Terminal-based chat and advanced features
+
 ## Features
 
 - **100% Local** - Runs on your machine with local LLM models (Ollama, llama.cpp, etc.)
@@ -537,6 +545,49 @@ Chaitanya_coding_Agent/
 ```bash
 python examples.py
 ```
+
+## VS Code Integration
+
+### Kiro Chat Extension
+
+A polished VS Code extension for interactive chat with your agent.
+
+**Features:**
+- 🎨 Beautiful WebView chat interface with timestamps and color-coded messages
+- 💾 Automatic chat history persistence
+- ⌨️ Keyboard shortcut: `Ctrl+Shift+K`
+- 📝 Message formatting with role labels
+
+**Quick Setup:**
+```bash
+cd kiro-vscode-extension
+npm install
+npm run package
+```
+
+Then install via VS Code Extensions → Install from VSIX.
+
+See [kiro-vscode-extension/README.md](kiro-vscode-extension/README.md) for details.
+
+## Performance & Utilities
+
+### String Operations Benchmarks
+
+Run benchmarks to compare string operation performance:
+
+```bash
+python benchmarks/bench_strings.py
+```
+
+Results show `''.join()` is ~30x faster than `+=`, and `str.translate()` is ~400x faster than regex for single-char replacement.
+
+### String Utilities
+
+Helper functions in `string_utils.py`:
+- `StringBuilder`: Efficient string accumulation
+- `fast_replace()`: Multi-string replacement
+- `safe_split()`: Wrapper with edge-case handling
+- `merge_lists_with_indices()`: O(n) merge avoiding `pop(0)`
 
 ## Contributing
 

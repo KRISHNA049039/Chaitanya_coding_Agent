@@ -1,0 +1,83 @@
+{
+  "name": "kiro-agent",
+  "displayName": "Kiro Agent",
+  "description": "AI coding agent with streaming chat and inline approvals",
+  "version": "0.1.0",
+  "publisher": "your-name",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "kiro-agent.openChat",
+        "title": "Kiro: Open Chat",
+        "icon": "$(comment-discussion)"
+      },
+      {
+        "command": "kiro-agent.clearChat",
+        "title": "Kiro: Clear Chat"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "kiro-agent",
+          "title": "Kiro Agent",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "kiro-agent": [
+        {
+          "type": "webview",
+          "id": "kiro-agent.chatView",
+          "name": "Chat"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Kiro Agent",
+      "properties": {
+        "kiroAgent.serverUrl": {
+          "type": "string",
+          "default": "http://localhost:5000",
+          "description": "URL of the Kiro Agent server"
+        },
+        "kiroAgent.modelName": {
+          "type": "string",
+          "default": "llama3.2:3b",
+          "description": "LLM model name"
+        },
+        "kiroAgent.enableStreaming": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable streaming responses"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "@types/vscode": "^1.80.0",
+    "typescript": "^5.0.0",
+    "@vscode/vsce": "^2.19.0"
+  },
+  "dependencies": {
+    "axios": "^1.6.0"
+  }
+}

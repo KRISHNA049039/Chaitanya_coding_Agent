@@ -50,7 +50,8 @@ class LocalLLMClient:
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
         system_prompt: Optional[str] = None,
-    ) -> str:
+        stream: bool = False,
+    ):
         """
         Send chat request to local LLM
         
@@ -59,9 +60,10 @@ class LocalLLMClient:
             temperature: Temperature for generation
             max_tokens: Maximum tokens to generate
             system_prompt: System prompt to use
+            stream: Enable streaming responses
             
         Returns:
-            Generated response from LLM
+            Generated response from LLM (string if not streaming, generator if streaming)
         """
         # Build message list
         formatted_messages = []
@@ -82,7 +84,7 @@ class LocalLLMClient:
             "model": self.model,
             "messages": formatted_messages,
             "temperature": temperature,
-            "stream": False,
+            "stream": stream,
         }
         
         if max_tokens:
@@ -94,17 +96,40 @@ class LocalLLMClient:
             response = requests.post(
                 self.chat_endpoint,
                 json=payload,
-                timeout=self.timeout
+                timeout=self.timeout,
+                stream=stream
             )
             response.raise_for_status()
             
-            result = response.json()
-            return result.get("message", {}).get("content", "")
+            if stream:
+                # Return generator for streaming
+                def stream_generator():
+                    full_response = ""
+                    for line in response.iter_lines():
+                        if line:
+                            try:
+                                chunk = json.loads(line)
+                                if "message" in chunk:
+                                    content = chunk["message"].get("content", "")
+                                    full_response += content
+                                    yield content
+                                # Check if done
+                                if chunk.get("done", False):
+                                    break
+                            except json.JSONDecodeError:
+                                continue
+                return stream_generator()
+            else:
+                result = response.json()
+                return result.get("message", {}).get("content", "")
         
         except requests.exceptions.Timeout:
             raise RuntimeError(f"LLM request timed out after {self.timeout}s")
         except requests.exceptions.ConnectionError:
             raise RuntimeError(f"Failed to connect to LLM at {self.base_url}")
+        except requests.exceptions.HTTPError as e:
+            # More detailed error for HTTP errors
+            raise RuntimeError(f"LLM HTTP error: {e}. Check if model '{self.model}' exists. Try: ollama pull {self.model}")
         except Exception as e:
             raise RuntimeError(f"LLM request failed: {str(e)}")
     

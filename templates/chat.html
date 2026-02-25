@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kiro Agent - Chat Interface</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+            height: 90vh;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            background: #4ade80;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .chat-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 30px;
+            background: #f8fafc;
+        }
+
+        .message {
+            margin-bottom: 20px;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.user {
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .message.agent {
+            display: flex;
+            justify-content: flex-start;
+        }
+
+        .message-content {
+            max-width: 70%;
+            padding: 15px 20px;
+            border-radius: 18px;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+            line-height: 1.5;
+        }
+
+        .message.user .message-content {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.agent .message-content {
+            background: white;
+            color: #1e293b;
+            border: 1px solid #e2e8f0;
+            border-bottom-left-radius: 4px;
+        }
+
+        .approval-request {
+            background: #fef3c7;
+            border: 2px solid #f59e0b;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .approval-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            font-weight: 600;
+            color: #92400e;
+        }
+
+        .approval-icon {
+            font-size: 24px;
+        }
+
+        .approval-details {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+
+        .approval-path {
+            color: #0891b2;
+            font-weight: bold;
+        }
+
+        .approval-operation {
+            display: inline-block;
+            background: #f59e0b;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+
+        .approval-diff {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .approval-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .approval-buttons button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .approve-btn {
+            background: #10b981;
+            color: white;
+        }
+
+        .approve-btn:hover {
+            background: #059669;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+        }
+
+        .reject-btn {
+            background: #ef4444;
+            color: white;
+        }
+
+        .reject-btn:hover {
+            background: #dc2626;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+        }
+
+        .input-area {
+            padding: 20px 30px;
+            background: white;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            gap: 15px;
+        }
+
+        #messageInput {
+            flex: 1;
+            padding: 15px 20px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 15px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        #messageInput:focus {
+            border-color: #667eea;
+        }
+
+        #sendBtn {
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        #sendBtn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        #sendBtn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .thinking {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            padding: 15px 20px;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 18px;
+            max-width: 200px;
+            margin-bottom: 20px;
+        }
+
+        .thinking.active {
+            display: flex;
+        }
+
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 3px solid #e2e8f0;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .clear-btn {
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .clear-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .welcome {
+            text-align: center;
+            padding: 40px;
+            color: #64748b;
+        }
+
+        .welcome h2 {
+            font-size: 28px;
+            margin-bottom: 10px;
+            color: #1e293b;
+        }
+
+        .welcome p {
+            font-size: 16px;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div>
+                <h1>🤖 Kiro Agent</h1>
+            </div>
+            <div style="display: flex; gap: 15px; align-items: center;">
+                <div class="status">
+                    <div class="status-dot"></div>
+                    <span>Online</span>
+                </div>
+                <button class="clear-btn" onclick="clearChat()">Clear Chat</button>
+            </div>
+        </div>
+
+        <div class="chat-area" id="chatArea">
+            <div class="welcome">
+                <h2>Welcome to Kiro Agent! 👋</h2>
+                <p>I'm your AI coding assistant. I can help you with:</p>
+                <p>✨ Creating and modifying files<br>
+                   🔍 Analyzing code<br>
+                   🛠️ Running commands<br>
+                   💡 Solving problems</p>
+                <p style="margin-top: 20px; font-size: 14px;">Type a message below to get started!</p>
+            </div>
+        </div>
+
+        <div class="input-area">
+            <input 
+                type="text" 
+                id="messageInput" 
+                placeholder="Type your message here..."
+                onkeypress="handleKeyPress(event)"
+            >
+            <button id="sendBtn" onclick="sendMessage()">Send</button>
+            <button id="stopBtn" onclick="stopProcessing()" style="display: none; background: #ef4444;">Stop</button>
+        </div>
+    </div>
+
+    <script>
+        let isProcessing = false;
+        let currentController = null;
+
+        function stopProcessing() {
+            if (currentController) {
+                currentController.abort();
+                currentController = null;
+            }
+            hideThinking();
+            isProcessing = false;
+            document.getElementById('sendBtn').disabled = false;
+            document.getElementById('stopBtn').style.display = 'none';
+            addMessage('⏹️ Stopped by user', 'agent');
+        }
+
+        function addMessage(text, type) {
+            const chatArea = document.getElementById('chatArea');
+            
+            // Remove welcome message if it exists
+            const welcome = chatArea.querySelector('.welcome');
+            if (welcome) {
+                welcome.remove();
+            }
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+            contentDiv.textContent = text;
+            
+            messageDiv.appendChild(contentDiv);
+            chatArea.appendChild(messageDiv);
+            
+            chatArea.scrollTop = chatArea.scrollHeight;
+        }
+
+        function showThinking() {
+            const chatArea = document.getElementById('chatArea');
+            const thinkingDiv = document.createElement('div');
+            thinkingDiv.className = 'thinking active';
+            thinkingDiv.id = 'thinking';
+            thinkingDiv.innerHTML = '<div class="spinner"></div><span>Agent thinking...</span>';
+            chatArea.appendChild(thinkingDiv);
+            chatArea.scrollTop = chatArea.scrollHeight;
+        }
+
+        function hideThinking() {
+            const thinking = document.getElementById('thinking');
+            if (thinking) {
+                thinking.remove();
+            }
+        }
+
+        function showApprovalRequest(approval) {
+            console.log('[DEBUG] showApprovalRequest called with:', approval);
+            
+            const chatArea = document.getElementById('chatArea');
+            
+            const approvalDiv = document.createElement('div');
+            approvalDiv.className = 'approval-request';
+            const changeId = approval.change_id || 'change_' + Date.now();
+            approvalDiv.id = `approval-${changeId}`;
+            
+            console.log('[DEBUG] Creating approval div with ID:', approvalDiv.id);
+            
+            // Determine operation display
+            const operation = approval.operation || 'UNKNOWN';
+            const isShellCommand = operation === 'execute_shell';
+            
+            let html = `
+                <div class="approval-header">
+                    <span class="approval-icon">${isShellCommand ? '⚡' : '⚠️'}</span>
+                    <span>${isShellCommand ? 'Shell Command Approval Required' : 'File Operation Approval Required'}</span>
+                </div>
+                <div class="approval-details">
+                    <span class="approval-operation">${operation.toUpperCase()}</span>
+                    ${isShellCommand ? 
+                        `<div style="margin-top: 8px; font-family: monospace; color: #e2e8f0; background: #1e293b; padding: 8px; border-radius: 4px;">$ ${approval.path}</div>` :
+                        `<span class="approval-path">${approval.path || 'unknown'}</span>`
+                    }
+                    ${approval.reason ? `<div style="margin-top: 8px; color: #64748b;">Reason: ${approval.reason}</div>` : ''}
+                </div>
+            `;
+            
+            // Show diff for file modifications
+            if (approval.diff && !isShellCommand) {
+                html += `<div class="approval-diff">${escapeHtml(approval.diff)}</div>`;
+            } else if (approval.content && approval.operation === 'create') {
+                const preview = approval.content.substring(0, 500);
+                html += `<div class="approval-diff">${escapeHtml(preview)}${approval.content.length > 500 ? '\n...' : ''}</div>`;
+            }
+            
+            // Warning for shell commands
+            if (isShellCommand) {
+                html += `<div style="background: #3d2626; padding: 8px; border-radius: 4px; margin: 8px 0; font-size: 12px; color: #f48771;">
+                    ⚠️ This will execute a shell command on your system. Only approve if you trust this command.
+                </div>`;
+            }
+            
+            html += `
+                <div class="approval-buttons">
+                    <button class="approve-btn" onclick="handleApproval('${changeId}', true)">✓ Approve</button>
+                    <button class="reject-btn" onclick="handleApproval('${changeId}', false)">✗ Reject</button>
+                </div>
+            `;
+            
+            approvalDiv.innerHTML = html;
+            chatArea.appendChild(approvalDiv);
+            chatArea.scrollTop = chatArea.scrollHeight;
+            
+            console.log('[DEBUG] Approval request added to DOM');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        async function handleApproval(changeId, approved) {
+            try {
+                const response = await fetch('/api/approve', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ change_id: changeId, approved: approved })
+                });
+                
+                const data = await response.json();
+                
+                // Remove approval request
+                const approvalDiv = document.getElementById(`approval-${changeId}`);
+                if (approvalDiv) {
+                    approvalDiv.remove();
+                }
+                
+                // Show result
+                addMessage(data.message || (approved ? 'Change approved' : 'Change rejected'), 'agent');
+            } catch (error) {
+                console.error('Error handling approval:', error);
+                addMessage('Error processing approval: ' + error.message, 'agent');
+            }
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (!message || isProcessing) return;
+            
+            isProcessing = true;
+            document.getElementById('sendBtn').disabled = true;
+            document.getElementById('stopBtn').style.display = 'inline-block';
+            
+            addMessage(message, 'user');
+            input.value = '';
+            
+            showThinking();
+            
+            // Set a very long timeout (5 minutes for complex requests)
+            currentController = new AbortController();
+            const timeoutId = setTimeout(() => {
+                if (currentController) {
+                    currentController.abort();
+                }
+            }, 300000);  // 5 minutes
+            
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: message }),
+                    signal: currentController.signal
+                });
+                
+                clearTimeout(timeoutId);
+                currentController = null;
+                
+                const data = await response.json();
+                
+                hideThinking();
+                
+                if (data.error) {
+                    addMessage('❌ ' + data.error, 'agent');
+                } else {
+                    addMessage(data.response, 'agent');
+                    
+                    console.log('[DEBUG] Response data:', data);
+                    console.log('[DEBUG] Pending approvals:', data.pending_approvals);
+                    
+                    // Show any pending approvals
+                    if (data.pending_approvals && data.pending_approvals.length > 0) {
+                        console.log('[DEBUG] Showing', data.pending_approvals.length, 'approval requests');
+                        data.pending_approvals.forEach((approval, index) => {
+                            console.log('[DEBUG] Approval', index, ':', approval);
+                            showApprovalRequest(approval);
+                        });
+                    } else {
+                        console.log('[DEBUG] No pending approvals to show');
+                    }
+                }
+            } catch (error) {
+                clearTimeout(timeoutId);
+                currentController = null;
+                hideThinking();
+                console.error('Error:', error);
+                
+                if (error.name === 'AbortError') {
+                    addMessage('⏱️ Request timed out. The agent took too long to respond. Try:\n- Using a simpler prompt\n- Making sure Ollama is running\n- Using a faster model', 'agent');
+                } else {
+                    addMessage('❌ Connection error: ' + error.message + '\n\nMake sure Ollama is running: ollama serve', 'agent');
+                }
+            } finally {
+                isProcessing = false;
+                document.getElementById('sendBtn').disabled = false;
+                document.getElementById('stopBtn').style.display = 'none';
+                input.focus();
+            }
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        async function clearChat() {
+            if (!confirm('Clear conversation history?')) return;
+            
+            try {
+                await fetch('/api/clear', { method: 'POST' });
+                document.getElementById('chatArea').innerHTML = `
+                    <div class="welcome">
+                        <h2>Chat Cleared! 👋</h2>
+                        <p>Start a new conversation below.</p>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error clearing chat:', error);
+            }
+        }
+
+        // Focus input on load
+        window.onload = () => {
+            document.getElementById('messageInput').focus();
+        };
+    </script>
+</body>
+</html>
